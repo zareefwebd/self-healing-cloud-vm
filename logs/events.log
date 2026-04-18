@@ -1,0 +1,11 @@
+[2026-04-18T16:25:34.259652] OK - All metrics normal. CPU:1.0% MEM:53.3%
+[2026-04-18T16:25:39.632697] WARNING - HIGH CPU: 100.0% > 90.0%
+[2026-04-18T16:25:39+00:00] HEALING - Attempting to restart apache2 (attempt 1)
+[2026-04-18T16:25:39+00:00] RECOVERED - apache2 restarted successfully.
+[2026-04-18T16:25:48.434485] CRITICAL - SERVICE DOWN: apache2 is inactive
+[2026-04-18T16:25:48+00:00] HEALING - Attempting to restart apache2 (attempt 1)
+[2026-04-18T16:25:48+00:00] RECOVERED - apache2 restarted successfully.
+[2026-04-18T16:26:02.502170] OK - All metrics normal. CPU:3.6% MEM:53.3%
+[2026-04-18T16:27:02.760047] OK - All metrics normal. CPU:11.3% MEM:53.8%
+[2026-04-18T16:28:03.016795] OK - All metrics normal. CPU:0.0% MEM:54.0%
+[2026-04-18T16:29:02.191526] OK - All metrics normal. CPU:4.1% MEM:54.4%

@@ -1,0 +1,10 @@
+Daily Report - 2026-04-18
+========================================
+OK: 1
+WARNING: 1
+CRITICAL: 1
+RECOVERED: 2
+FAILED: 0
+ESCALATE: 0
+========================================
+See logs/events.log for full details.
