@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Healing VM Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+    .topbar { background: #1a1d2e; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2d3e; }
+    .topbar h1 { font-size: 20px; color: #ffffff; }
+    .topbar span { font-size: 13px; color: #888; }
+    .container { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .card { background: #1a1d2e; border-radius: 10px; padding: 20px; border: 1px solid #2a2d3e; }
+    .card-label { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card-value { font-size: 32px; font-weight: bold; margin-bottom: 8px; }
+    .card-bar { background: #2a2d3e; border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 6px; }
+    .card-fill { height: 6px; border-radius: 4px; transition: width 1s ease; }
+    .card-status { font-size: 12px; }
+    .ok { color: #4caf50; } .warn { color: #ff9800; } .crit { color: #f44336; } .info { color: #2196f3; }
+    .fill-ok { background: #4caf50; } .fill-warn { background: #ff9800; } .fill-crit { background: #f44336; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .panel { background: #1a1d2e; border-radius: 10px; padding: 20px; border: 1px solid #2a2d3e; }
+    .panel h2 { font-size: 14px; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .svc-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2d3e; font-size: 14px; }
+    .svc-row:last-child { border-bottom: none; }
+    .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-active { background: #1b3a1f; color: #4caf50; }
+    .badge-inactive { background: #3a1b1b; color: #f44336; }
+    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2a2d3e; font-size: 14px; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: #888; }
+    .log-panel { background: #1a1d2e; border-radius: 10px; padding: 20px; border: 1px solid #2a2d3e; }
+    .log-panel h2 { font-size: 14px; color: #aaa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .log-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #2a2d3e; font-size: 13px; }
+    .log-row:last-child { border-bottom: none; }
+    .log-time { color: #555; font-family: monospace; min-width: 85px; padding-top: 2px; font-size: 11px; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .dot-ok { background: #4caf50; }
+    .dot-warn { background: #ff9800; }
+    .dot-crit { background: #f44336; }
+    .dot-heal { background: #2196f3; }
+    .dot-rec { background: #4caf50; }
+    .dot-esc { background: #9c27b0; }
+    .log-msg { flex: 1; color: #ccc; }
+    .status-bar { display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .refresh-info { font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Self-Healing VM Dashboard</h1>
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText" style="font-size:13px;color:#4caf50">System Healthy</span>
+    <span class="refresh-info" style="margin-left:16px">Auto-refreshes every 30 seconds</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Metric Cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">CPU Usage</div>
+      <div class="card-value" id="cpuVal">--%</div>
+      <div class="card-bar"><div class="card-fill" id="cpuBar" style="width:0%"></div></div>
+      <div class="card-status" id="cpuStatus">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Memory Usage</div>
+      <div class="card-value" id="memVal">--%</div>
+      <div class="card-bar"><div class="card-fill" id="memBar" style="width:0%"></div></div>
+      <div class="card-status" id="memStatus">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Disk Usage</div>
+      <div class="card-value" id="diskVal">--%</div>
+      <div class="card-bar"><div class="card-fill" id="diskBar" style="width:0%"></div></div>
+      <div class="card-status" id="diskStatus">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Service Status</div>
+      <div class="card-value" id="svcVal" style="font-size:20px;margin-top:6px">--</div>
+      <div class="card-status" id="svcStatus">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Services + Summary -->
+  <div class="two-col">
+    <div class="panel">
+      <h2>Services</h2>
+      <div id="serviceList">Loading...</div>
+    </div>
+    <div class="panel">
+      <h2>Today's Summary</h2>
+      <div id="summaryStats">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Event Log -->
+  <div class="log-panel">
+    <h2>Live Event Log</h2>
+    <div id="logEntries">Loading...</div>
+  </div>
+
+</div>
+
+<script>
+  // Read and parse the events.log file
+  async function loadData() {
+    try {
+      const res = await fetch('events.log?t=' + Date.now());
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(l => l.trim());
+      return lines;
+    } catch(e) {
+      return [];
+    }
+  }
+
+  async function loadMetrics() {
+    try {
+      const res = await fetch('metrics.json?t=' + Date.now());
+      return await res.json();
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function getLevel(line) {
+    if (line.includes('RECOVERED')) return 'rec';
+    if (line.includes('HEALING')) return 'heal';
+    if (line.includes('ESCALATE')) return 'esc';
+    if (line.includes('CRITICAL')) return 'crit';
+    if (line.includes('WARNING')) return 'warn';
+    return 'ok';
+  }
+
+  function colorForLevel(level) {
+    const map = { ok:'#4caf50', warn:'#ff9800', crit:'#f44336', heal:'#2196f3', rec:'#4caf50', esc:'#9c27b0' };
+    return map[level] || '#888';
+  }
+
+  function countEvents(lines) {
+    let counts = { OK:0, WARNING:0, CRITICAL:0, RECOVERED:0, ESCALATE:0 };
+    lines.forEach(l => {
+      if (l.includes('OK -')) counts.OK++;
+      else if (l.includes('WARNING')) counts.WARNING++;
+      else if (l.includes('CRITICAL')) counts.CRITICAL++;
+      else if (l.includes('RECOVERED')) counts.RECOVERED++;
+      else if (l.includes('ESCALATE')) counts.ESCALATE++;
+    });
+    return counts;
+  }
+
+  function extractTime(line) {
+    const match = line.match(/\[([^\]]+)\]/);
+    if (!match) return '--:--:--';
+    const ts = match[1];
+    const timePart = ts.split('T')[1] || ts;
+    return timePart.substring(0,8);
+  }
+
+  function setMetricCard(val, valId, barId, statusId, threshold, label) {
+    const el = document.getElementById(valId);
+    const bar = document.getElementById(barId);
+    const status = document.getElementById(statusId);
+    el.textContent = val + '%';
+    bar.style.width = Math.min(val, 100) + '%';
+    if (val >= threshold) {
+      el.className = 'card-value crit';
+      bar.className = 'card-fill fill-crit';
+      status.className = 'card-status crit';
+      status.textContent = 'Above threshold (' + threshold + '%)';
+    } else if (val >= threshold * 0.85) {
+      el.className = 'card-value warn';
+      bar.className = 'card-fill fill-warn';
+      status.className = 'card-status warn';
+      status.textContent = 'Near threshold';
+    } else {
+      el.className = 'card-value ok';
+      bar.className = 'card-fill fill-ok';
+      status.className = 'card-status ok';
+      status.textContent = 'Normal';
+    }
+  }
+
+  async function refresh() {
+    const lines = await loadData();
+    const metrics = await loadMetrics();
+
+    // Update metric cards
+    if (metrics) {
+      setMetricCard(metrics.cpu_percent.toFixed(1), 'cpuVal', 'cpuBar', 'cpuStatus', 90, 'CPU');
+      setMetricCard(metrics.memory_percent.toFixed(1), 'memVal', 'memBar', 'memStatus', 85, 'Memory');
+      setMetricCard(metrics.disk_percent.toFixed(1), 'diskVal', 'diskBar', 'diskStatus', 90, 'Disk');
+
+      const svcVal = document.getElementById('svcVal');
+      const svcStatus = document.getElementById('svcStatus');
+      if (metrics.service_status === 'active') {
+        svcVal.textContent = 'Active';
+        svcVal.className = 'card-value ok';
+        svcStatus.textContent = metrics.service_name + ' is running';
+        svcStatus.className = 'card-status ok';
+      } else {
+        svcVal.textContent = 'Down';
+        svcVal.className = 'card-value crit';
+        svcStatus.textContent = metrics.service_name + ' is ' + metrics.service_status;
+        svcStatus.className = 'card-status crit';
+      }
+
+      // Services list
+      const svcList = document.getElementById('serviceList');
+      const services = [
+        { name: metrics.service_name, status: metrics.service_status },
+        { name: 'ssh', status: 'active' },
+        { name: 'cron', status: 'active' }
+      ];
+      svcList.innerHTML = services.map(s => `
+        <div class="svc-row">
+          <span>${s.name}</span>
+          <span class="badge ${s.status === 'active' ? 'badge-active' : 'badge-inactive'}">${s.status}</span>
+        </div>`).join('');
+
+      // Overall status
+      const isHealthy = metrics.cpu_percent < 90 && metrics.memory_percent < 85 && metrics.service_status === 'active';
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+      dot.style.background = isHealthy ? '#4caf50' : '#f44336';
+      txt.style.color = isHealthy ? '#4caf50' : '#f44336';
+      txt.textContent = isHealthy ? 'System Healthy' : 'Issue Detected';
+    }
+
+    // Summary stats
+    const counts = countEvents(lines);
+    document.getElementById('summaryStats').innerHTML = `
+      <div class="stat-row"><span class="stat-label">OK events</span><span class="ok">${counts.OK}</span></div>
+      <div class="stat-row"><span class="stat-label">Warnings</span><span class="warn">${counts.WARNING}</span></div>
+      <div class="stat-row"><span class="stat-label">Critical</span><span class="crit">${counts.CRITICAL}</span></div>
+      <div class="stat-row"><span class="stat-label">Recovered</span><span class="info">${counts.RECOVERED}</span></div>
+      <div class="stat-row"><span class="stat-label">Escalated</span><span style="color:#9c27b0">${counts.ESCALATE}</span></div>
+    `;
+
+    // Event log — last 10 lines reversed
+    const recent = [...lines].reverse().slice(0, 10);
+    document.getElementById('logEntries').innerHTML = recent.map(line => {
+      const level = getLevel(line);
+      const time = extractTime(line);
+      const msg = line.replace(/^\[[^\]]+\]\s*/, '');
+      return `<div class="log-row">
+        <span class="log-time">${time}</span>
+        <div class="log-dot dot-${level}"></div>
+        <span class="log-msg">${msg}</span>
+      </div>`;
+    }).join('') || '<div style="color:#555;font-size:13px;padding:12px 0">No events yet</div>';
+  }
+
+  refresh();
+  setInterval(refresh, 30000);
+</script>
+
+</body>
+</html>
